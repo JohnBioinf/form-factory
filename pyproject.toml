@@ -1,0 +1,61 @@
+[project]
+name = "dash-form-factory"
+version = "0.1.0"
+description = "Generate Dash Bootstrap forms from Pydantic v2 models using a factory pattern"
+readme = "README.md"
+license = {text = "EUPL-1.2"}
+requires-python = ">=3.12"
+keywords = ["dash", "pydantic", "forms", "bootstrap", "factory"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: Dash",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: European Union Public Licence 1.2 (EUPL 1.2)",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+    "Typing :: Typed",
+]
+
+dependencies = [
+    "dash>=3.2.0",
+    "dash-bootstrap-components>=2.0.3",
+    "pydantic>=2.12.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=4.0.0",
+    "ruff>=0.7.0",
+    "mypy>=1.8.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.sdist]
+include = ["src/dash_form_factory"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/dash_form_factory"]
+
+[tool.uv]
+default-groups = ["dev"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
