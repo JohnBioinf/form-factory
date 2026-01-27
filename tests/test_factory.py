@@ -183,7 +183,9 @@ class TestCreateComponent:
             pytest.param(_DropdownChecklistModel, "options", id="dropdown-checklist"),
         ],
     )
-    def test_creates_component_for_field_type(self, model_class, field_name, make_factory):
+    def test_creates_component_for_field_type(
+        self, model_class, field_name, make_factory
+    ):
         """Creates correct component for each supported field type."""
         factory = make_factory(model_class, field_name)
         components = factory.create_component(field_name)
