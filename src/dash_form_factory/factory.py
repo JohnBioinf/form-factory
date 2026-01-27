@@ -3,7 +3,7 @@
 from copy import deepcopy
 from typing import Any, get_args
 
-import dash_bootstrap_components as dbc
+import dash_bootstrap_components as dbc  # type: ignore[import-untyped]
 from dash import Input, Output, State, dcc, html
 from pydantic_core import ValidationError
 
@@ -145,7 +145,7 @@ class FormFactory:
         elif field_type == "dropdown-checklist":
             props["label"] = field.title
             choices = get_args(get_args(field.annotation)[0])
-            options = []
+            options: list[dict[str, Any]] = []
             prefix = "foobar"
             for choice in choices:
                 label = choice.replace("_", " ")
@@ -459,7 +459,7 @@ class FormFactory:
                     # This should be a model validator that manually passed the location
                     locs = error["ctx"]["loc_tuple"]
 
-                field = locs[0]
+                field = str(locs[0])
                 if field in self.pymodel_class.model_fields:
                     default = self.pymodel_class.model_fields[field].default
                     model_dict[field] = default
