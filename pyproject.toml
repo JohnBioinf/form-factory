@@ -24,6 +24,9 @@ dependencies = [
     "pydantic>=2.12.0",
 ]
 
+[project.urls]
+Repository = "https://github.com/JohnBioinf/form-factory"
+
 [dependency-groups]
 dev = [
     "pytest>=8.0.0",

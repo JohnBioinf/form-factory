@@ -202,4 +202,4 @@ uv run mypy src/
 
 ## License
 
-MIT
+EUPL
