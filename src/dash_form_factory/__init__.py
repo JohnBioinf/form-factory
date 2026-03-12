@@ -27,4 +27,4 @@ from dash_form_factory.factory import FormFactory
 from dash_form_factory.placeholder import InputField
 
 __all__ = ["FormFactory", "InputField"]
-__version__ = "0.1.1"
+__version__ = "0.1.4"
