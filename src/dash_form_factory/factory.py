@@ -444,25 +444,5 @@ class FormFactory:
                 except KeyError:
                     pass
 
-        # Try to validate the model with the data from the form.
-        try:
-            # Create an instance just for validation (don't store it)
-            self.pymodel(**model_dict)
-        except ValidationError as e:
-            # If there are any validation errors, we need to set default values for any
-            # missing or invalid fields. Otherwise, there will be a mismatch between the
-            # form and the model. If a field is invalid and the user continues to edit
-            # the form, any subsequent edits will not be reflected in the model.
-            for error in e.errors():
-                locs = error["loc"]
-                if len(locs) == 0:
-                    # This should be a model validator that manually passed the location
-                    locs = error["ctx"]["loc_tuple"]
-
-                field = str(locs[0])
-                if field in self.pymodel_class.model_fields:
-                    default = self.pymodel_class.model_fields[field].default
-                    model_dict[field] = default
-            # Try again with defaults filled in
-            self.pymodel(**model_dict)
-            raise
+        # Validate by constructing — raises ValidationError if invalid.
+        self.pymodel_class(**model_dict)
