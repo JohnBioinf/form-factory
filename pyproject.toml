@@ -1,6 +1,6 @@
 [project]
 name = "dash-form-factory"
-version = "0.1.1"
+version = "0.1.2"
 description = "Generate Dash Bootstrap forms from Pydantic v2 models using a factory pattern"
 readme = "README.md"
 license = {text = "EUPL-1.2"}
