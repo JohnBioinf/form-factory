@@ -415,8 +415,12 @@ class FormFactory:
                     output_dict[f"{id_feedback}_type"] = "valid"
                 output_dict[f"{id_feedback}_children"] = ""
 
-        if len(exceptions) > 0:
-            raise ValueError(f"Unhandled form validation errors: {exceptions}")
+        # Remaining exceptions are for fields not on the form (e.g. fields
+        # targeted by model validators but not present as InputField
+        # placeholders). Return them so the caller can route to the correct
+        # feedback components.
+        for field_name, msg in exceptions.items():
+            output_dict[f"{field_name}_feedback_children"] = msg
 
         return valid, output_dict
 
