@@ -424,11 +424,14 @@ class FormFactory:
 
         return valid, output_dict
 
-    def set_model(self, form_data: dict[str, Any]) -> None:
+    def set_model(self, form_data: dict[str, Any]) -> Any:
         """Set the model from the form data.
 
         Args:
             form_data: Dictionary of form field values
+
+        Returns:
+            The validated Pydantic model instance
         """
         model_dict: dict[str, Any] = {}
         for field_name in self.pymodel_class.model_fields:
@@ -449,4 +452,4 @@ class FormFactory:
                     pass
 
         # Validate by constructing — raises ValidationError if invalid.
-        self.pymodel_class(**model_dict)
+        return self.pymodel_class(**model_dict)
