@@ -7,17 +7,19 @@ This example demonstrates all field types supported by dash-form-factory:
 - float: Number input with step="any"
 - checkbox: Checkbox
 - date-picker: Date range picker
+- select: Single-choice dropdown
 - dropdown-checklist: Dropdown with checklist
 
 Run with: uv run python examples/advanced_form.py
 Then open: http://127.0.0.1:8050
 """
 
-from typing import Annotated, List, Literal
+import re
+from typing import Annotated, Any, Literal
 
 import dash_bootstrap_components as dbc
 from dash import Dash, Input, Output, callback, html
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from dash_form_factory import FormFactory, InputField
 
@@ -31,13 +33,14 @@ class AdvancedForm(BaseModel):
         str,
         Field(
             "",
+            min_length=1,
             title="Username",
             description="Choose a unique username",
             json_schema_extra={"type": "text"},
         ),
     ]
 
-    # Email field
+    # Email field — defaults to "" but validated as EmailStr when non-empty
     email: Annotated[
         str,
         Field(
@@ -53,8 +56,10 @@ class AdvancedForm(BaseModel):
         int,
         Field(
             18,
+            ge=18,
+            le=70,
             title="Age",
-            description="Your age in years",
+            description="Must be between 18 and 70",
             json_schema_extra={"type": "integer"},
         ),
     ]
@@ -64,8 +69,9 @@ class AdvancedForm(BaseModel):
         float,
         Field(
             0.0,
+            ge=0,
             title="Expected Salary",
-            description="Annual salary in thousands",
+            description="Annual salary in thousands (must be positive)",
             json_schema_extra={"type": "float"},
         ),
     ]
@@ -83,7 +89,7 @@ class AdvancedForm(BaseModel):
 
     # Date picker field
     availability: Annotated[
-        List[str],
+        list[str],
         Field(
             ["2024-01-01", "2024-12-31"],
             title="Availability Period",
@@ -92,16 +98,69 @@ class AdvancedForm(BaseModel):
         ),
     ]
 
-    # Dropdown checklist field
+    # Select field
+    role: Annotated[
+        Literal["developer", "designer", "manager", "other"],
+        Field(
+            "developer",
+            title="Role",
+            description="Your primary role",
+            json_schema_extra={"type": "select"},
+        ),
+    ]
+
+    @model_validator(mode="after")
+    def validate_newsletter_requires_email(self) -> "AdvancedForm":
+        """Newsletter subscription requires a valid email address."""
+        if self.email and not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", self.email):
+            raise ValueError("Please enter a valid email address")
+        if self.newsletter and not self.email:
+            raise ValueError("Email is required when subscribing to the newsletter")
+        return self
+
+    # Dropdown checklist field — options are grouped by first word when using
+    # a custom checklist_formatter (see grouped_checklist_formatter below)
     skills: Annotated[
-        List[Literal["python", "javascript", "rust", "go"]],
+        list[
+            Literal[
+                "backend python",
+                "backend java",
+                "backend go",
+                "frontend javascript",
+                "frontend typescript",
+                "frontend css",
+                "devops docker",
+                "devops kubernetes",
+            ]
+        ],
         Field(
             [],
             title="Skills",
-            description="Select your programming skills",
+            description="Select your skills by category",
             json_schema_extra={"type": "dropdown-checklist"},
         ),
     ]
+
+
+def grouped_checklist_formatter(
+    choices: tuple[str, ...], active: bool
+) -> list[dict[str, Any]]:
+    """Format checklist options with Hr dividers between prefix groups.
+
+    Groups options by their first word and inserts a horizontal rule between
+    groups. This is useful when choices follow a "category item" naming pattern.
+    """
+    options: list[dict[str, Any]] = []
+    prefix: str | None = None
+    for choice in choices:
+        label = choice.replace("_", " ")
+        if prefix is None or not label.startswith(prefix):
+            prefix = label.split(" ")[0]
+            if len(options) > 0:
+                previous_label = options[-1]["label"]
+                options[-1]["label"] = [html.Div(previous_label), html.Hr()]
+        options.append({"label": label, "value": choice, "disabled": not active})
+    return options
 
 
 # Create layout with all field types
@@ -128,12 +187,16 @@ layout_template = dbc.Card(
                 ),
                 # Date picker
                 dbc.Row([dbc.Col(InputField("availability"))], className="mb-3"),
+                # Select
+                dbc.Row([dbc.Col(InputField("role"))], className="mb-3"),
                 # Dropdown checklist
                 dbc.Row([dbc.Col(InputField("skills"))], className="mb-3"),
                 # Checkbox
                 dbc.Row([dbc.Col(InputField("newsletter"))], className="mb-3"),
                 # Submit button
-                dbc.Button("Submit", id="submit-btn", color="primary", className="w-100"),
+                dbc.Button(
+                    "Submit", id="submit-btn", color="primary", className="w-100"
+                ),
             ]
         ),
     ],
@@ -142,7 +205,9 @@ layout_template = dbc.Card(
 )
 
 # Process layout
-factory = FormFactory(AdvancedForm, layout_template)
+factory = FormFactory(
+    AdvancedForm, layout_template, checklist_formatter=grouped_checklist_formatter
+)
 form_layout = factory.process_layout(factory.layout)
 
 # Create app
@@ -182,12 +247,17 @@ def handle_submit(**inputs):
                         html.Li(f"Email: {inputs['email']}"),
                         html.Li(f"Age: {inputs['age']}"),
                         html.Li(f"Salary: ${inputs['salary']}k"),
-                        html.Li(f"Newsletter: {'Yes' if inputs['newsletter'] else 'No'}"),
+                        html.Li(
+                            f"Newsletter: {'Yes' if inputs['newsletter'] else 'No'}"
+                        ),
                         html.Li(
                             f"Availability: {inputs['availability_start_date']} "
                             f"to {inputs['availability_end_date']}"
                         ),
-                        html.Li(f"Skills: {', '.join(inputs['skills']) or 'None'}"),
+                        html.Li(f"Role: {inputs['role']}"),
+                        html.Li(
+                            f"Skills: {', '.join(inputs['skills']) or 'None'}"
+                        ),
                     ]
                 ),
             ]

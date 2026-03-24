@@ -19,6 +19,8 @@ ENV/
 .vscode/
 *.swp
 *.swo
+SOUL.md
+USER.md
 
 # Testing
 .pytest_cache/

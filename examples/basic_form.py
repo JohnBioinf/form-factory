@@ -10,11 +10,12 @@ Run with: uv run python examples/basic_form.py
 Then open: http://127.0.0.1:8050
 """
 
+import re
 from typing import Annotated
 
 import dash_bootstrap_components as dbc
 from dash import Dash, Input, Output, callback, html
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from dash_form_factory import FormFactory, InputField
 
@@ -27,6 +28,7 @@ class ContactForm(BaseModel):
         str,
         Field(
             "",
+            min_length=1,
             title="Full Name",
             description="Enter your full name",
             json_schema_extra={"type": "text"},
@@ -36,11 +38,20 @@ class ContactForm(BaseModel):
         str,
         Field(
             "",
+            min_length=1,
             title="Email Address",
             description="We'll never share your email",
             json_schema_extra={"type": "email"},
         ),
     ]
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        """Check email format."""
+        if v and not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", v):
+            raise ValueError("Please enter a valid email address")
+        return v
 
 
 # 2. Create layout with InputField placeholders
@@ -96,7 +107,9 @@ def validate_form(**inputs):
             color="success",
         )
     else:
-        output_dict["output"] = dbc.Alert("Please fix the errors above.", color="danger")
+        output_dict["output"] = dbc.Alert(
+            "Please fix the errors above.", color="danger"
+        )
 
     return output_dict
 

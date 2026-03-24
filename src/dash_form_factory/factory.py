@@ -5,7 +5,7 @@ from typing import Any, get_args
 
 import dash_bootstrap_components as dbc  # type: ignore[import-untyped]
 from dash import Input, Output, State, dcc, html
-from pydantic_core import ValidationError
+from pydantic_core import PydanticUndefined, ValidationError
 
 from dash_form_factory.placeholder import InputField
 
@@ -23,6 +23,7 @@ class FormFactory:
         - "float": Number input with step="any" (dbc.Input)
         - "checkbox": Checkbox (dbc.Checkbox)
         - "date-picker": Date range picker (dcc.DatePickerRange)
+        - "select": Single-choice dropdown (dbc.Select)
         - "dropdown-checklist": Dropdown with checklist (dbc.DropdownMenu)
 
     Example:
@@ -43,7 +44,13 @@ class FormFactory:
         >>> form = factory.process_layout(factory.layout)
     """
 
-    def __init__(self, pymodel: type[Any], layout: Any, active: bool = True) -> None:
+    def __init__(
+        self,
+        pymodel: type[Any],
+        layout: Any,
+        active: bool = True,
+        checklist_formatter: Any = None,
+    ) -> None:
         """Initialize FormFactory.
 
         Args:
@@ -51,6 +58,9 @@ class FormFactory:
             layout: Optional. For generate_form(): OrderedDict layout.
                    For process_layout(): Can be any Dash component tree.
             active: Whether form fields are active (editable) or disabled
+            checklist_formatter: Optional callable(choices, active) -> list[dict]
+                that formats dropdown-checklist options. When None, options use
+                plain labels with underscores replaced by spaces.
         """
         # Store both the instance (for values) and the class (for schema)
         if isinstance(pymodel, type):
@@ -72,6 +82,7 @@ class FormFactory:
             "text": dbc.Input,
             "float": dbc.Input,
             "integer": dbc.Input,
+            "select": dbc.Select,
             "dropdown-checklist": dbc.DropdownMenu,
             "date-picker": dcc.DatePickerRange,
             "checkbox": dbc.Checkbox,
@@ -89,6 +100,7 @@ class FormFactory:
         self.feedback_id_format = "{field_name}_feedback"
         self.start_date_id_format = "{field_name}_start_date"
         self.end_date_id_format = "{field_name}_end_date"
+        self.checklist_formatter = checklist_formatter
 
     def create_component(self, field_name: Any) -> Any:
         """Create the Dash component for a field.
@@ -145,18 +157,18 @@ class FormFactory:
         elif field_type == "dropdown-checklist":
             props["label"] = field.title
             choices = get_args(get_args(field.annotation)[0])
-            options: list[dict[str, Any]] = []
-            prefix = "foobar"
-            for choice in choices:
-                label = choice.replace("_", " ")
-                if not label.startswith(prefix):
-                    prefix = label.split(" ")[0]
-                    if len(options) > 0:
-                        previous_label = options[-1]["label"]
-                        options[-1]["label"] = [html.Div(previous_label), html.Hr()]
-                options.append(
-                    {"label": label, "value": choice, "disabled": not self.active}
-                )
+            if self.checklist_formatter is not None:
+                options = self.checklist_formatter(choices, self.active)
+                self._validate_checklist_options(options)
+            else:
+                options = [
+                    {
+                        "label": choice.replace("_", " "),
+                        "value": choice,
+                        "disabled": not self.active,
+                    }
+                    for choice in choices
+                ]
             checklist_props = {
                 "options": options,
                 "value": value,
@@ -173,6 +185,17 @@ class FormFactory:
             props["initial_visible_month"] = value[1]
             if not self.active:
                 props["disabled"] = True
+        elif field_type == "select":
+            choices = get_args(field.annotation)
+            options = [{"label": c.replace("_", " "), "value": c} for c in choices]
+            props["id"] = id_field
+            props["options"] = options
+            if value is PydanticUndefined:
+                value = choices[0]
+            props["value"] = value
+            if not self.active:
+                props["disabled"] = True
+                props["style"] = {"background-color": "#e9ecef"}
         elif field_type == "checkbox":
             props["id"] = id_field
             props["value"] = value
@@ -202,6 +225,16 @@ class FormFactory:
                 dbc.FormText(field.description),
                 dbc.FormText(id=id_feedback, className="text-danger"),
             ]
+        elif field_type == "dropdown-checklist":
+            content = [
+                component_class(**props),
+                dbc.FormText(field.description),
+                dbc.FormText(
+                    "",
+                    id=id_feedback,
+                    className="text-danger",
+                ),
+            ]
         else:
             content = [
                 dbc.Label(field.title),
@@ -210,6 +243,26 @@ class FormFactory:
                 dbc.FormFeedback(id=id_feedback),
             ]
         return content
+
+    @staticmethod
+    def _validate_checklist_options(options: Any) -> None:
+        """Validate the return value of a checklist_formatter."""
+        required_keys = {"label", "value", "disabled"}
+        if not isinstance(options, list):
+            raise TypeError(
+                f"checklist_formatter must return a list, got {type(options).__name__}"
+            )
+        for i, option in enumerate(options):
+            if not isinstance(option, dict):
+                raise TypeError(
+                    f"checklist_formatter option[{i}] must be a dict, "
+                    f"got {type(option).__name__}"
+                )
+            missing = required_keys - option.keys()
+            if missing:
+                raise ValueError(
+                    f"checklist_formatter option[{i}] missing keys: {missing}"
+                )
 
     def extract_field_names(self, layout: Any) -> list[str]:
         """Extract all field names from InputField instances in a layout tree.

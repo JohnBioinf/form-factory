@@ -115,6 +115,24 @@ def dropdown_checklist_model():
 
 
 @pytest.fixture
+def select_model():
+    """Pydantic model with select field."""
+
+    class SelectConfig(BaseModel):
+        color: Annotated[
+            Literal["red", "green", "blue"],
+            Field(
+                "red",
+                title="Color",
+                description="Pick a color",
+                json_schema_extra={"type": "select"},
+            ),
+        ]
+
+    return SelectConfig
+
+
+@pytest.fixture
 def make_factory():
     """Helper to create a FormFactory with a simple layout."""
     from dash import html

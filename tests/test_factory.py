@@ -89,6 +89,29 @@ class _DropdownChecklistModel(BaseModel):
     ]
 
 
+class _SelectModel(BaseModel):
+    color: Annotated[
+        Literal["red", "green", "blue"],
+        Field(
+            "red",
+            title="Color",
+            description="Pick a color",
+            json_schema_extra={"type": "select"},
+        ),
+    ]
+
+
+class _SelectNoDefaultModel(BaseModel):
+    color: Annotated[
+        Literal["red", "green", "blue"],
+        Field(
+            title="Color",
+            description="Pick a color",
+            json_schema_extra={"type": "select"},
+        ),
+    ]
+
+
 class TestFormFactoryInit:
     """Tests for FormFactory initialization."""
 
@@ -181,6 +204,7 @@ class TestCreateComponent:
             pytest.param(_CheckboxModel, "accept_terms", id="checkbox"),
             pytest.param(_DatePickerModel, "date_range", id="date-picker"),
             pytest.param(_DropdownChecklistModel, "options", id="dropdown-checklist"),
+            pytest.param(_SelectModel, "color", id="select"),
         ],
     )
     def test_creates_component_for_field_type(
@@ -332,3 +356,97 @@ class TestValidateCallback:
 
         assert valid is True
         assert output_dict["name_valid"] is True
+
+
+class TestSelectField:
+    """Tests for the select field type."""
+
+    def test_creates_dbc_select(self, make_factory):
+        """Select field creates a dbc.Select component."""
+        factory = make_factory(_SelectModel, "color")
+        components = factory.create_component("color")
+
+        select_components = [c for c in components if isinstance(c, dbc.Select)]
+        assert len(select_components) == 1
+
+    def test_options_from_literal(self, make_factory):
+        """Options are built from Literal values with underscore-to-space labels."""
+        factory = make_factory(_SelectModel, "color")
+        components = factory.create_component("color")
+
+        select = [c for c in components if isinstance(c, dbc.Select)][0]
+        assert select.options == [
+            {"label": "red", "value": "red"},
+            {"label": "green", "value": "green"},
+            {"label": "blue", "value": "blue"},
+        ]
+
+    def test_uses_default_value(self, make_factory):
+        """Select uses the field's default value."""
+        factory = make_factory(_SelectModel, "color")
+        components = factory.create_component("color")
+
+        select = [c for c in components if isinstance(c, dbc.Select)][0]
+        assert select.value == "red"
+
+    def test_fallback_to_first_literal(self, make_factory):
+        """Select without default uses first Literal value."""
+        factory = make_factory(_SelectNoDefaultModel, "color")
+        components = factory.create_component("color")
+
+        select = [c for c in components if isinstance(c, dbc.Select)][0]
+        assert select.value == "red"
+
+    def test_has_valid_invalid_outputs(self, make_factory):
+        """Select field gets valid/invalid callback outputs."""
+        factory = make_factory(_SelectModel, "color")
+        outputs = factory.produce_callback_outputs()
+
+        assert "color_valid" in outputs
+        assert "color_invalid" in outputs
+        assert "color_feedback_children" in outputs
+
+    def test_uses_form_feedback(self, make_factory):
+        """Select field uses dbc.FormFeedback for validation display."""
+        factory = make_factory(_SelectModel, "color")
+        components = factory.create_component("color")
+
+        feedback = [c for c in components if isinstance(c, dbc.FormFeedback)]
+        assert len(feedback) == 1
+
+    def test_disabled_when_inactive(self, make_factory):
+        """Select is disabled with gray background when inactive."""
+        factory = make_factory(_SelectModel, "color", active=False)
+        components = factory.create_component("color")
+
+        select = [c for c in components if isinstance(c, dbc.Select)][0]
+        assert select.disabled is True
+        assert select.style == {"background-color": "#e9ecef"}
+
+    def test_validate_callback(self, make_factory):
+        """Select validation sets valid/invalid correctly."""
+        factory = make_factory(_SelectModel, "color")
+        valid, output_dict = factory.validate_callback({"color": "red"})
+
+        assert valid is True
+        assert output_dict["color_valid"] is True
+
+
+class TestDropdownChecklistFeedback:
+    """Regression tests for dropdown-checklist feedback bug fix."""
+
+    def test_uses_form_text_not_form_feedback(self, make_factory):
+        """Dropdown-checklist uses FormText (not FormFeedback) for feedback."""
+        factory = make_factory(_DropdownChecklistModel, "options")
+        components = factory.create_component("options")
+
+        # Should NOT have FormFeedback (it can't work with DropdownMenu)
+        feedback = [c for c in components if isinstance(c, dbc.FormFeedback)]
+        assert len(feedback) == 0
+
+        # Should have FormText with text-danger for error display
+        form_texts = [c for c in components if isinstance(c, dbc.FormText)]
+        danger_texts = [
+            t for t in form_texts if getattr(t, "className", None) == "text-danger"
+        ]
+        assert len(danger_texts) == 1
