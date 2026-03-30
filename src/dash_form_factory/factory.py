@@ -94,12 +94,11 @@ class FormFactory:
             "dropdown-checklist",
             "date-picker",
         ]
-        # Always preserve IDs for callbacks, regardless of active state
-        # Disabled state and styling are handled in create_component()
-        self.id_format = "{field_name}"
-        self.feedback_id_format = "{field_name}_feedback"
-        self.start_date_id_format = "{field_name}_start_date"
-        self.end_date_id_format = "{field_name}_end_date"
+        prefix = "readonly-" if not active else ""
+        self.id_format = prefix + "{field_name}"
+        self.feedback_id_format = prefix + "{field_name}_feedback"
+        self.start_date_id_format = prefix + "{field_name}_start_date"
+        self.end_date_id_format = prefix + "{field_name}_end_date"
         self.checklist_formatter = checklist_formatter
 
     def create_component(self, field_name: Any) -> Any:
